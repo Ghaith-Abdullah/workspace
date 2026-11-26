@@ -14,7 +14,7 @@ async def main():
             for t in times:
                 await pg.evaluate(f'render({t})'); await pg.screenshot(path=out.format(t=t), type='jpeg', quality=90)
         else:
-            for i in range(375):
+            for i in range(405):
                 await pg.evaluate(f'render({i/30})'); await pg.screenshot(path=out.format(i=i), omit_background=True)
         await b.close()
 asyncio.run(main())

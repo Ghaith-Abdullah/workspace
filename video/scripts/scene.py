@@ -433,6 +433,7 @@ for ob_ in (cam, tgt):
         for kp in fc.keyframe_points: kp.interpolation = 'LINEAR'
 
 # ---------------------------------------------------------------- export projection for the 2D title layer
+os.makedirs(args.out, exist_ok=True)
 if args.seg == 'B':
     from bpy_extras.object_utils import world_to_camera_view
     sc.frame_set(100); bpy.context.view_layer.update()

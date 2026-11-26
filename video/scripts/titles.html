@@ -6,7 +6,7 @@
 html,body{width:1440px;height:1080px;overflow:hidden;background:transparent}
 body.preview{background:#000 url("bg.png") center/cover no-repeat}
 #scrim{position:absolute;inset:0;background:radial-gradient(ellipse 75% 70% at 50% 46%,rgba(0,0,0,.42) 0%,rgba(0,0,0,.62) 60%,rgba(0,0,0,.86) 100%);opacity:0}
-.w{position:absolute;left:0;top:0;font-family:Osw;text-transform:uppercase;white-space:nowrap;line-height:1;color:#fff;transform-origin:50% 50%;will-change:transform}
+.w{position:absolute;left:0;top:0;font-family:Osw;letter-spacing:.035em;text-transform:uppercase;white-space:nowrap;line-height:1;color:#fff;transform-origin:50% 50%;will-change:transform}
 </style></head><body>
 <div id="scrim"></div>
 <div id="layer"></div>
@@ -19,9 +19,9 @@ const eo=x=>1-Math.pow(1-clamp(x),3), eio=x=>{x=clamp(x);return x<.5?4*x*x*x:1-M
 const layer=document.getElementById('layer');
 // cards: lines of words. t = time the word arrives. fly = streams out of the laptop screen
 const CARDS=[
- {out:4.30, lines:[[['Stop',2.50]],[['guessing.',3.05]]], fly:true},
- {out:6.90, lines:[[['Ask',4.60],['an',5.05]],[['expert.',5.45]]], fly:true},
- {out:99, lines:[[['Ghaith',7.30]],[['Abdullah',7.75]],[['Digital',8.25],['Marketing',8.55],['Expert',8.85]],[['WhatsApp',9.35],['+961 71 625 947',9.70]],[['web.ghayth-abdallah.com',10.25]]], fly:false, gaps:[0,0,.55,.30,.12]},
+ {out:3.90, lines:[[['Stop',2.50]],[['guessing.',3.00]]], fly:true},
+ {out:6.35, lines:[[['Ask',4.65],['an',5.00]],[['expert.',5.40]]], fly:true},
+ {out:99, lines:[[['Ghaith',6.95],['Abdullah',7.35]],[['Digital',7.85],['Marketing',8.15],['Expert',8.45]],[['WhatsApp',8.95],['+961 71 625 947',9.30]],[['web.ghayth-abdallah.com',9.80]]], fly:false, gaps:[0,.35,.55,.25]},
 ];
 const ALL=[];
 function build(){
@@ -35,7 +35,7 @@ CARDS.forEach((c,ci)=>{
   const L=c.lines.map(ws=>{const tw=ws.reduce((s,[x])=>s+width(x,300,100),0)+SP*100*(ws.length-1);const size=100*BLOCK/tw;return {ws,size}});
   // cap very short lines so the stack fits the frame height
   let total=()=>L.reduce((s,l,i)=>s+l.size*0.98+(c.gaps?c.gaps[i]*60:0),0);
-  const maxH=c.fly?880:820; let k=1; if(total()>maxH){k=maxH/total(); L.forEach(l=>l.size*=k)}
+  const maxH=c.fly?880:860; let k=1; if(total()>maxH){k=maxH/total(); L.forEach(l=>l.size*=k)}
   let y=(H-total())/2-10;
   L.forEach((l,li)=>{
     y+= (c.gaps?c.gaps[li]*60:0);
@@ -76,7 +76,7 @@ function render(t){
     const wt=300+320*act;
     const col=mix(WHITE,GOLD,act);
     e.style.fontWeight=wt; e.style.color=`rgb(${col})`;
-    e.style.textShadow=act>0.01?`0 0 ${Math.round(w.size*0.18)}px rgba(217,169,73,${0.45*act})`:'none';
+    e.style.textShadow=act>0.01?`0 0 2px rgba(217,169,73,${0.35*act})`:'none';
     e.style.opacity=op; e.style.filter=blur>0.2?`blur(${blur.toFixed(1)}px)`:'none';
     const r=e.getBoundingClientRect();
     s*=1+(w.fit-1)*act;
