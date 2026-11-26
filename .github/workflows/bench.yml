@@ -1,0 +1,19 @@
+name: bench
+on:
+  push:
+    paths: ['bench/**', '.github/workflows/bench.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - run: pip install bpy==5.3.0
+      - run: mkdir -p out && nproc && (python bench/b.py 2>&1 | grep SECONDS | tee out/time.txt) && nproc >> out/time.txt
+      - run: |
+          git config user.name "render-bot"; git config user.email "render-bot@users.noreply.github.com"
+          git checkout --orphan results-bench && git rm -rf --cached . -q && git add -f out && git commit -qm "bench" && git push -f origin results-bench
