@@ -344,7 +344,7 @@ def text_obj(name, body, font, size, color, strength):
     return ob, mx.inputs['Fac']
 
 TXT = {}
-if args.seg == 'B':
+if False:
     TXT['ans'] = text_obj('answer', 'Page 4 on Google. Almost invisible to AI.\nYour ads are doing all the work.', 'Inter-Regular.otf', 0.0148, (0.92, 0.92, 0.92), 2.0)
     TXT['ask'] = text_obj('ask', 'Ask an expert.', 'Inter-SemiBold.otf', 0.031, (0.97, 0.97, 0.97), 2.3)
     TXT['name'] = text_obj('name', 'Ghaith Abdullah', 'Inter-SemiBold.otf', 0.030, (0.96, 0.95, 0.93), 2.1)
@@ -388,9 +388,11 @@ def shot(f):
             x = ease_out(t / 2.3) ** 0.9
             p, g_ = lerpv(CAM_FILL, END_B[0], x), lerpv(S_CEN, END_B[1], x)
         else:
-            x = (t - 2.3) / (345 / FPS - 2.3)
-            p, g_ = lerpv(END_B[0], END_B2[0], x), lerpv(END_B[1], END_B2[1], x)
-        return p, g_, S_CEN, 1.55, tex
+            p, g_ = END_B[0], END_B[1]   # locked-off camera under the end titles
+        # rack focus off the laptop toward the lens as the titles take over
+        fk = ease_io((t - 2.35) / 1.0)
+        fpt = S_CEN.lerp(p + (g_ - p).normalized() * 0.22, fk)
+        return p, g_, fpt, 1.55, tex
 
 def text_state(f, cam_p, cam_g):
     """position floating text in front of the camera; returns focus point"""
@@ -420,7 +422,7 @@ def text_state(f, cam_p, cam_g):
     return TXT['name'][0].location
 
 # ---------------------------------------------------------------- keyframes (camera) for motion blur
-nB = 345; nA = 198
+nB = 110; nA = 198
 N = nA if args.seg == 'A' else nB
 for f in range(0, N + 1):
     p, g_, *_ = shot(f)
@@ -429,6 +431,16 @@ for f in range(0, N + 1):
 for ob_ in (cam, tgt):
     for fc in ob_.animation_data.action.fcurves if hasattr(ob_.animation_data.action, 'fcurves') else []:
         for kp in fc.keyframe_points: kp.interpolation = 'LINEAR'
+
+# ---------------------------------------------------------------- export projection for the 2D title layer
+if args.seg == 'B':
+    from bpy_extras.object_utils import world_to_camera_view
+    sc.frame_set(100); bpy.context.view_layer.update()
+    tr = json.load(open(os.path.join(TEX, 'think_rect.json')))['think_rect_px']
+    pts = {k: world_to_camera_view(sc, cam, screen_pt(*v)) for k, v in
+           {'think': (tr[0] + tr[2] / 2, tr[1] + tr[3] / 2), 'scr_tl': (0, 0), 'scr_br': (1512, 982)}.items()}
+    json.dump({k: [v.x * 1440, (1 - v.y) * 1080] for k, v in pts.items()}, open(os.path.join(args.out, 'proj.json'), 'w'))
+    print('PROJ', open(os.path.join(args.out, 'proj.json')).read())
 
 # ---------------------------------------------------------------- render loop
 frames = list(range(args.range[0], args.range[1] + 1)) if args.range else [int(x) for x in args.frames.split(',') if x]
@@ -442,9 +454,6 @@ for f in frames:
     spill.data.energy = 1.3 * clamp(emit / 1.55)
     SCR_IMG.image = img(os.path.join(TEX, texn))
     fp = focus
-    if args.seg == 'B':
-        tf = text_state(f, p, g_)
-        if tf is not None: fp = tf
     cam_d.dof.focus_distance = max(0.05, (fp - p).dot((g_ - p).normalized()))
     sc.render.filepath = os.path.join(args.out, '%s_%04d.png' % (args.seg, f))
     t0 = time.time(); bpy.ops.render.render(write_still=True)
