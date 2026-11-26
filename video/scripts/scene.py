@@ -94,7 +94,7 @@ world.node_tree.nodes['Background'].inputs['Strength'].default_value = 1.0
 
 # ---------------------------------------------------------------- materials
 alu = principled('alu', (0.135, 0.14, 0.148), rough=0.34, metal=1.0)
-alu_tp = principled('trackpad', (0.12, 0.125, 0.132), rough=0.22, metal=1.0)
+alu_tp = principled('trackpad', (0.125, 0.13, 0.136), rough=0.42, metal=0.55)
 keys = principled('keys', (0.010, 0.010, 0.011), rough=0.52, spec=0.4)
 well = principled('well', (0.004, 0.004, 0.004), rough=0.7)
 bezel = principled('bezel', (0.002, 0.002, 0.002), rough=0.03, spec=0.5)
@@ -109,7 +109,7 @@ ph_frame = principled('phone_frame', (0.42, 0.42, 0.44), rough=0.22, metal=1.0)
 # wood
 wood = bpy.data.materials.new('wood'); wood.use_nodes = True
 nt = wood.node_tree; b = nt.nodes['Principled BSDF']
-tc = nt.nodes.new('ShaderNodeTexCoord'); mp = nt.nodes.new('ShaderNodeMapping'); mp.inputs['Scale'].default_value = (1.1, 1.1, 1.1)
+tc = nt.nodes.new('ShaderNodeTexCoord'); mp = nt.nodes.new('ShaderNodeMapping'); mp.inputs['Scale'].default_value = (1.7, 1.7, 1.7)
 nt.links.new(tc.outputs['Object'], mp.inputs['Vector'])
 def wtex(fn, cs):
     t = nt.nodes.new('ShaderNodeTexImage'); t.image = img(os.path.join(TEX, fn), cs); t.projection = 'BOX'; t.projection_blend = 0.2
@@ -119,7 +119,7 @@ hsv = nt.nodes.new('ShaderNodeHueSaturation'); hsv.inputs['Value'].default_value
 nt.links.new(c.outputs['Color'], hsv.inputs['Color']); nt.links.new(hsv.outputs['Color'], b.inputs['Base Color'])
 rm = nt.nodes.new('ShaderNodeMapRange'); rm.inputs['To Min'].default_value = 0.28; rm.inputs['To Max'].default_value = 0.62
 nt.links.new(r.outputs['Color'], rm.inputs['Value']); nt.links.new(rm.outputs['Result'], b.inputs['Roughness'])
-nm = nt.nodes.new('ShaderNodeNormalMap'); nm.inputs['Strength'].default_value = 0.45
+nm = nt.nodes.new('ShaderNodeNormalMap'); nm.inputs['Strength'].default_value = 0.3
 nt.links.new(n.outputs['Color'], nm.inputs['Color']); nt.links.new(nm.outputs['Normal'], b.inputs['Normal'])
 b.inputs['Coat Weight'].default_value = 0.18; b.inputs['Coat Roughness'].default_value = 0.22
 
@@ -310,8 +310,8 @@ if args.seg == 'B':
     TXT['role'][0].data.space_character = 1.25
 
 # ---------------------------------------------------------------- shot design
-WIDE_A0 = (Vector((0.27, -0.80, 0.40)), Vector((0.03, 0.20, 0.15)))
-WIDE_A1 = (Vector((0.13, -0.66, 0.365)), Vector((0.01, 0.18, 0.135)))
+WIDE_A0 = (Vector((0.26, -0.75, 0.385)), Vector((0.055, 0.14, 0.12)))
+WIDE_A1 = (Vector((0.15, -0.69, 0.37)), Vector((0.03, 0.15, 0.125)))
 POV_A = (Vector((0.035, -0.53, 0.33)), screen_pt(756, 520))
 POV_A2 = (Vector((0.03, -0.49, 0.315)), screen_pt(756, 500))
 END_B = (Vector((0.11, -0.86, 0.405)), Vector((0.005, 0.16, 0.145)))
@@ -356,7 +356,7 @@ def text_state(f, cam_p, cam_g):
     tr = json.load(open(os.path.join(TEX, 'think_rect.json')))['think_rect_px']
     s0 = screen_pt(tr[0] + 230, tr[1] + tr[3] / 2)  # answer would print where 'Thinking' sits
     k = ease_io((t - 2.15) / 2.0)
-    pos = s0.lerp(at(0.52, 0, 0.012), k)
+    pos = s0.lerp(at(0.52, 0, 0.05), k)
     scale = 0.16 + 0.84 * ease_io((t - 2.15) / 1.6)
     # exit up and away
     e = ease_io((t - 6.35) / 0.9)
@@ -367,7 +367,7 @@ def text_state(f, cam_p, cam_g):
     k2 = ease_out((t - 6.75) / 1.1)
     for ob_, dz, fac_, delay in ((nm_, 0.016, nfac, 0.0), (rl, -0.012, rfac, 0.18), (ur, -0.037, ufac, 0.4)):
         kk = ease_out((t - 6.75 - delay) / 1.0)
-        ob_.location = at(0.52, 0, dz - 0.03 * (1 - kk)); ob_.rotation_euler = rot
+        ob_.location = at(0.52, 0, 0.056 + dz - 0.03 * (1 - kk)); ob_.rotation_euler = rot
         fac_.default_value = clamp((t - 6.75 - delay) / 0.45)
     if t < 2.15: return None
     if t < 6.6: return ans.location
