@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 # Join: 3D opening (A) + desktop recording + 3D end plate (B) held under the title layer.
-# usage: assemble.sh <tag> <desk.mp4> <titles_dir> <out.mp4>
+# usage: assemble.sh "<A tag:idx list>" "<B tag:idx list>" <desk.mp4> <titles_dir> <out.mp4>
 set -euo pipefail
-TAG=$1; DESK=$2; TITLES=$3; OUT=$4
+ALIST=$1; BLIST=$2; DESK=$3; TITLES=$4; OUT=$5
 REPO=/home/claude/workspace; W=$(mktemp -d)
 cd "$REPO"
-for i in $(seq 0 19); do
-  git fetch -q --depth 1 origin "+refs/heads/out-$TAG-$i:refs/remotes/origin/out-$TAG-$i"
-  git show "origin/out-$TAG-$i:out/chunk.mp4" > "$W/c$(printf %02d $i).mp4"
-done
-: > "$W/a.txt"; : > "$W/b.txt"
-for i in $(seq 0 12);  do echo "file 'c$(printf %02d $i).mp4'" >> "$W/a.txt"; done
-for i in $(seq 13 19); do echo "file 'c$(printf %02d $i).mp4'" >> "$W/b.txt"; done
+: > "$W/a.txt"; : > "$W/b.txt"; n=0
+get(){ git fetch -q --depth 1 origin "+refs/heads/out-$1-$2:refs/remotes/origin/out-$1-$2"; git show "origin/out-$1-$2:out/chunk.mp4" > "$W/$3"; }
+for ti in $ALIST; do n=$((n+1)); get ${ti%:*} ${ti#*:} a$n.mp4; echo "file 'a$n.mp4'" >> "$W/a.txt"; done
+for ti in $BLIST; do n=$((n+1)); get ${ti%:*} ${ti#*:} b$n.mp4; echo "file 'b$n.mp4'" >> "$W/b.txt"; done
 cd "$W"
 ffmpeg -loglevel error -y -f concat -safe 0 -i a.txt -c copy A.mp4
 ffmpeg -loglevel error -y -f concat -safe 0 -i b.txt -c copy B.mp4
