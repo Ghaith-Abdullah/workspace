@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Osw;src:url("../fonts/Oswald.ttf");font-weight:200 700}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1440px;height:1080px;overflow:hidden;background:transparent}
+body.preview{background:#000 url("bg.png") center/cover no-repeat}
+#scrim{position:absolute;inset:0;background:radial-gradient(ellipse 75% 70% at 50% 46%,rgba(0,0,0,.42) 0%,rgba(0,0,0,.62) 60%,rgba(0,0,0,.86) 100%);opacity:0}
+.w{position:absolute;left:0;top:0;font-family:Osw;text-transform:uppercase;white-space:nowrap;line-height:1;color:#fff;transform-origin:50% 50%;will-change:transform}
+</style></head><body>
+<div id="scrim"></div>
+<div id="layer"></div>
+<script>
+const GOLD=[217,169,73], WHITE=[255,255,255];
+const W=1440,H=1080, BLOCK=1160;          // block width: frame-filling, inside 4:3 safe area
+const THINK=PROJ_THINK;                    // where 'Thinking' sits on the laptop screen (projected)
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const eo=x=>1-Math.pow(1-clamp(x),3), eio=x=>{x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
+const layer=document.getElementById('layer');
+// cards: lines of words. t = time the word arrives. fly = streams out of the laptop screen
+const CARDS=[
+ {out:4.30, lines:[[['Stop',2.50]],[['guessing.',3.05]]], fly:true},
+ {out:6.90, lines:[[['Ask',4.60],['an',5.05]],[['expert.',5.45]]], fly:true},
+ {out:99, lines:[[['Ghaith',7.30]],[['Abdullah',7.75]],[['Digital',8.25],['Marketing',8.55],['Expert',8.85]],[['WhatsApp',9.35],['+961 71 625 947',9.70]],[['web.ghayth-abdallah.com',10.25]]], fly:false, gaps:[0,0,.55,.30,.12]},
+];
+const ALL=[];
+function build(){
+// measure a word at a weight and size
+const meas=document.createElement('span');meas.className='w';meas.style.visibility='hidden';document.body.appendChild(meas);
+function width(txt,wt,size){meas.style.fontWeight=wt;meas.style.fontSize=size+'px';meas.textContent=txt;return meas.getBoundingClientRect().width}
+const SP=0.36; // word space in em
+// layout every card: each line justified to BLOCK width (measured at heavy weight), stacked, centred vertically
+
+CARDS.forEach((c,ci)=>{
+  const L=c.lines.map(ws=>{const tw=ws.reduce((s,[x])=>s+width(x,300,100),0)+SP*100*(ws.length-1);const size=100*BLOCK/tw;return {ws,size}});
+  // cap very short lines so the stack fits the frame height
+  let total=()=>L.reduce((s,l,i)=>s+l.size*0.98+(c.gaps?c.gaps[i]*60:0),0);
+  const maxH=c.fly?880:820; let k=1; if(total()>maxH){k=maxH/total(); L.forEach(l=>l.size*=k)}
+  let y=(H-total())/2-10;
+  L.forEach((l,li)=>{
+    y+= (c.gaps?c.gaps[li]*60:0);
+    const lw=l.ws.reduce((s,[x])=>s+width(x,300,l.size),0)+SP*l.size*(l.ws.length-1);
+    let x=(W-lw)/2;
+    l.ws.forEach(([txt,t])=>{
+      const ww=width(txt,300,l.size);
+      const el=document.createElement('div');el.className='w';el.textContent=txt;el.style.fontSize=l.size+'px';layer.appendChild(el);
+      ALL.push({el,txt,t,cx:x+ww/2,cy:y+l.size*0.5,size:l.size,card:ci,fly:c.fly,out:c.out,fit:Math.min(1,ww*1.0/width(txt,620,l.size))});
+      x+=ww+SP*l.size;
+    });
+    y+=l.size*0.98;
+  });
+});
+
+ALL.forEach((w,i)=>{w.next=i<ALL.length-1?ALL[i+1].t:99});
+}
+window.ready=document.fonts.load('300 100px Osw').then(()=>document.fonts.load('700 100px Osw')).then(()=>{build();return true});
+function mix(a,b,k){return a.map((v,i)=>Math.round(v+(b[i]-v)*k))}
+function render(t){
+  document.getElementById('scrim').style.opacity=eio((t-2.35)/0.9);
+  ALL.forEach(w=>{
+    const e=w.el; const land=w.fly?0.45:0.34; const st=w.t-land;
+    if(t<st){e.style.opacity=0;return}
+    let x=w.cx,y=w.cy,s=1,op=1,blur=0;
+    const k=clamp((t-st)/land);
+    if(w.fly){ // leaves the laptop screen tiny and travels to its place, scale follows depth
+      const kk=eo(k); const d0=0.035; const sc=d0+(1-d0)*Math.pow(kk,1.6);
+      x=THINK[0]+(w.cx-THINK[0])*kk; y=THINK[1]+(w.cy-THINK[1])*kk; s=sc;
+      blur=(1-kk)*10; op=clamp(k*3);
+    } else { // pops forward out of depth
+      const kk=eo(k); s=1.06-0.06*kk; blur=(1-kk)*10; op=clamp(k*2.2);
+    }
+    // card exit: rushes past the lens
+    if(t>w.out){const q=eio((t-w.out)/0.38); s*=1+0.9*q; op*=1-q; blur+=q*18; y+=(w.cy-H/2)*0.5*q; x+=(w.cx-W/2)*0.5*q;}
+    // active word: gold + heavy until the next word lands
+    const act=t<w.next?1:1-clamp((t-w.next)/0.22);
+    const wt=300+320*act;
+    const col=mix(WHITE,GOLD,act);
+    e.style.fontWeight=wt; e.style.color=`rgb(${col})`;
+    e.style.textShadow=act>0.01?`0 0 ${Math.round(w.size*0.18)}px rgba(217,169,73,${0.45*act})`:'none';
+    e.style.opacity=op; e.style.filter=blur>0.2?`blur(${blur.toFixed(1)}px)`:'none';
+    const r=e.getBoundingClientRect();
+    s*=1+(w.fit-1)*act;
+    e.style.transform=`translate(${x-e.offsetWidth/2}px,${y-e.offsetHeight/2}px) scale(${s})`;
+  });
+}
+window.render=render;
+</script></body></html>
