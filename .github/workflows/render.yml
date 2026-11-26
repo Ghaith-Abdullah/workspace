@@ -1,0 +1,44 @@
+name: render
+on:
+  push:
+    paths: ['video/plan.json']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: echo "matrix=$(python3 -c "import json;p=json.load(open('video/plan.json'));print(json.dumps({'include':[dict(j,idx=i,tag=p['tag'],samples=p['samples']) for i,j in enumerate(p['jobs'])]}))")" >> $GITHUB_OUTPUT
+  render:
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - run: pip install -q bpy==5.3.0
+      - run: sudo apt-get -qq update && sudo apt-get -qq install -y ffmpeg >/dev/null
+      - name: render
+        run: |
+          cd video
+          if [ -n "${{ matrix.range }}" ]; then R="--range ${{ matrix.range }}"; else R="--frames ${{ matrix.frames }}"; fi
+          python scripts/scene.py --seg ${{ matrix.seg }} $R --out ../out --samples ${{ matrix.samples }} 2>&1 | grep -E "FRAME|Error|Traceback|line [0-9]"
+      - name: encode
+        if: ${{ matrix.range != '' }}
+        run: |
+          cd out && first=$(ls *.png | head -1 | sed -E 's/.*_([0-9]+)\.png/\1/')
+          ffmpeg -loglevel error -framerate 30 -start_number $((10#$first)) -i ${{ matrix.seg }}_%04d.png -c:v libx264 -crf 10 -preset slow -pix_fmt yuv420p -r 30 chunk.mp4 && rm *.png
+      - name: publish
+        run: |
+          git config user.name "render-bot"; git config user.email "render-bot@users.noreply.github.com"
+          B="out-${{ matrix.tag }}-${{ matrix.idx }}"
+          git checkout --orphan "$B" && git rm -rf --cached . -q && git add -f out && git commit -qm "$B" && git push -f origin "$B"
