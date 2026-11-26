@@ -1,0 +1,16 @@
+name: cancel-old-renders
+on:
+  push:
+    paths: ['video/plan.json']
+permissions:
+  actions: write
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run list -R ${{ github.repository }} -w render.yml -L 30 --json databaseId,headSha,status \
+            --jq '.[] | select(.headSha != "${{ github.sha }}" and (.status=="queued" or .status=="in_progress" or .status=="waiting" or .status=="pending")) | .databaseId' \
+            | xargs -r -n1 gh run cancel -R ${{ github.repository }}

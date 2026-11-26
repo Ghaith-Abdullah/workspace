@@ -242,6 +242,42 @@ screen.data.materials.append(scr); screen.parent = lid; screen.location = (0, SC
 bpy.ops.mesh.primitive_cylinder_add(radius=0.0042, depth=LW - 0.05, rotation=(0, math.radians(90), 0), location=(0, LD/2 - 0.003, BH + 0.0005))
 bpy.context.object.data.materials.append(hinge)
 
+# key legends (translucent print, backlit after wake)
+leg = bpy.data.materials.new('legend'); leg.use_nodes = True
+lb = leg.node_tree.nodes['Principled BSDF']; lb.inputs['Base Color'].default_value = (0.32, 0.32, 0.33, 1)
+lb.inputs['Roughness'].default_value = 0.5; lb.inputs['Emission Color'].default_value = (1.0, 0.97, 0.92, 1)
+LEG_EMIT = lb.inputs['Emission Strength']; LEG_EMIT.default_value = 0.0
+LABELS = [['esc','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12',''],
+          ['`','1','2','3','4','5','6','7','8','9','0','-','=','delete'],
+          ['tab','Q','W','E','R','T','Y','U','I','O','P','[',']','\\'],
+          ['caps lock','A','S','D','F','G','H','J','K','L',';',"'",'return'],
+          ['shift','Z','X','C','V','B','N','M',',','.','/','shift'],
+          ['fn','control','option','command','','command','option','','']]
+lfont = bpy.data.fonts.load(os.path.join(FONTS, 'Inter-Regular.otf'))
+legs = []; yy = ytop
+for ri, (hu, ws) in enumerate(rows):
+    tot = sum(ws) * U; x = -tot / 2; h = hu * U
+    for ki, wu in enumerate(ws):
+        lab = LABELS[ri][ki] if ki < len(LABELS[ri]) else ''
+        if lab:
+            cu = bpy.data.curves.new('lg', 'FONT'); cu.body = lab; cu.font = lfont
+            small = len(lab) > 2
+            cu.size = 0.0021 if small else (0.0026 if ri == 0 else 0.0038)
+            cu.align_x = 'CENTER' if not small else ('LEFT' if ki == 0 else ('RIGHT' if ki == len(ws) - 1 else 'CENTER'))
+            cu.align_y = 'CENTER'
+            ob = bpy.data.objects.new('lg', cu); bpy.context.collection.objects.link(ob)
+            if small and ki == 0: ox = x + 0.0025
+            elif small and ki == len(ws) - 1: ox = x + wu * U - 0.0025 - KG
+            else: ox = x + wu * U / 2
+            oy = yy - h / 2 - (h * 0.22 if small else 0)
+            ob.location = (ox, oy, BH + 0.00072); ob.data.materials.append(leg); legs.append(ob)
+        x += wu * U
+    yy -= h
+bpy.ops.object.select_all(action='DESELECT')
+for o in legs: o.select_set(True)
+bpy.context.view_layer.objects.active = legs[0]
+bpy.ops.object.convert(target='MESH'); bpy.ops.object.join()
+
 # world-space screen frame (for cameras / text)
 bpy.context.view_layer.update()
 M = screen.matrix_world
@@ -274,8 +310,8 @@ bpy.context.object.data.materials.append(coffee)
 bpy.ops.object.light_add(type='AREA', location=(-1.05, -0.55, 0.95))
 lamp = bpy.context.object; lamp.data.energy = 26; lamp.data.size = 0.5; lamp.data.color = (1.0, 0.66, 0.38)
 lamp.rotation_euler = (Vector((0.0, 0.05, 0.0)) - lamp.location).to_track_quat('-Z', 'Y').to_euler()
-bpy.ops.object.light_add(type='AREA', location=(0.0, -2.2, 1.6))
-fill = bpy.context.object; fill.data.energy = 6; fill.data.size = 2.0; fill.data.color = (0.55, 0.65, 1.0)
+bpy.ops.object.light_add(type='AREA', location=(-0.2, -0.35, 2.3))
+fill = bpy.context.object; fill.data.energy = 5; fill.data.size = 1.2; fill.data.color = (0.55, 0.65, 1.0)
 fill.rotation_euler = (Vector((0, 0.1, 0.1)) - fill.location).to_track_quat('-Z', 'Y').to_euler()
 
 # ---------------------------------------------------------------- camera
@@ -285,6 +321,12 @@ tgt = bpy.data.objects.new('tgt', None); bpy.context.collection.objects.link(tgt
 tc_ = cam.constraints.new('TRACK_TO'); tc_.target = tgt; tc_.track_axis = 'TRACK_NEGATIVE_Z'; tc_.up_axis = 'UP_Y'
 cam_d.dof.use_dof = True; cam_d.dof.aperture_fstop = 2.2
 FILL_D = (SW / 2) / math.tan(math.atan(18 / 50))  # distance where screen width fills the frame
+bpy.ops.object.light_add(type='AREA', location=S_CEN + S_N * 0.004)
+spill = bpy.context.object; spill.data.shape = 'RECTANGLE'; spill.data.size = SW; spill.data.size_y = SH
+spill.data.color = (0.78, 0.84, 1.0); spill.data.energy = 0.0
+spill.rotation_euler = S_N.to_track_quat('-Z', 'Y').to_euler()
+spill.rotation_euler = (-S_N).to_track_quat('Z', 'Y').to_euler()
+spill.visible_camera = False; spill.visible_glossy = False
 CAM_FILL = S_CEN + S_N * (FILL_D / 1.16)  # matches the 2D recording's first/last framing (zoom 1.16)
 
 # ---------------------------------------------------------------- floating text (segment B)
@@ -303,19 +345,24 @@ def text_obj(name, body, font, size, color, strength):
 
 TXT = {}
 if args.seg == 'B':
-    TXT['ans'] = text_obj('answer', 'Stop guessing. Ask an expert.', 'Inter-Medium.otf', 0.0215, (0.93, 0.93, 0.93), 2.2)
-    TXT['name'] = text_obj('name', 'Ghaith Abdullah', 'Inter-SemiBold.otf', 0.030, (0.94, 0.92, 0.88), 2.0)
-    TXT['role'] = text_obj('role', 'DIGITAL MARKETING EXPERT', 'Inter-Medium.otf', 0.0092, (0.80, 0.62, 0.30), 2.2)
-    TXT['url'] = text_obj('url', 'web.ghayth-abdallah.com', 'Inter-Regular.otf', 0.0082, (0.62, 0.62, 0.64), 1.6)
+    TXT['ans'] = text_obj('answer', 'Page 4 on Google. Almost invisible to AI.\nYour ads are doing all the work.', 'Inter-Regular.otf', 0.0148, (0.92, 0.92, 0.92), 2.0)
+    TXT['ask'] = text_obj('ask', 'Ask an expert.', 'Inter-SemiBold.otf', 0.031, (0.97, 0.97, 0.97), 2.3)
+    TXT['name'] = text_obj('name', 'Ghaith Abdullah', 'Inter-SemiBold.otf', 0.030, (0.96, 0.95, 0.93), 2.1)
+    TXT['role'] = text_obj('role', 'DIGITAL MARKETING EXPERT', 'Inter-Medium.otf', 0.0090, (0.74, 0.74, 0.76), 2.0)
+    TXT['wa'] = text_obj('wa', 'WhatsApp  +961 71 625 947', 'Inter-Medium.otf', 0.0128, (0.97, 0.97, 0.97), 2.2)
+    TXT['url'] = text_obj('url', 'web.ghayth-abdallah.com', 'Inter-Regular.otf', 0.0094, (0.80, 0.80, 0.82), 1.9)
     TXT['role'][0].data.space_character = 1.25
+    TXT['ans'][0].data.space_line = 1.25
+    bpy.ops.object.light_add(type='POINT', location=(0, 0, 0)); TGLOW = bpy.context.object
+    TGLOW.data.energy = 0.0; TGLOW.data.shadow_soft_size = 0.04; TGLOW.data.color = (0.9, 0.93, 1.0); TGLOW.visible_camera = False
 
 # ---------------------------------------------------------------- shot design
-WIDE_A0 = (Vector((0.26, -0.75, 0.385)), Vector((0.055, 0.14, 0.12)))
+WIDE_A0 = (Vector((0.22, -0.67, 0.355)), Vector((0.045, 0.14, 0.125)))
 WIDE_A1 = (Vector((0.15, -0.69, 0.37)), Vector((0.03, 0.15, 0.125)))
 POV_A = (Vector((0.035, -0.53, 0.33)), screen_pt(756, 520))
 POV_A2 = (Vector((0.03, -0.49, 0.315)), screen_pt(756, 500))
-END_B = (Vector((0.11, -0.86, 0.405)), Vector((0.005, 0.16, 0.145)))
-END_B2 = (Vector((0.095, -0.80, 0.39)), Vector((0.005, 0.16, 0.15)))
+END_B = (Vector((0.11, -0.86, 0.405)), Vector((0.005, 0.16, 0.20)))
+END_B2 = (Vector((0.095, -0.80, 0.39)), Vector((0.005, 0.16, 0.205)))
 
 def shot(f):
     """returns cam_pos, target, focus_point, screen_emit, screen_tex"""
@@ -351,27 +398,26 @@ def text_state(f, cam_p, cam_g):
     fwd = (cam_g - cam_p).normalized(); right = fwd.cross(Vector((0, 0, 1))).normalized(); up = right.cross(fwd).normalized()
     def at(dist, dx, dz): return cam_p + fwd * dist + right * dx + up * dz
     rot = fwd.to_track_quat('-Z', 'Y').to_euler()
-    ans, afac = TXT['ans']; nm_, nfac = TXT['name']; rl, rfac = TXT['role']; ur, ufac = TXT['url']
-    # think label on screen -> lift off
+    ans, afac = TXT['ans']; ask, kfac = TXT['ask']
     tr = json.load(open(os.path.join(TEX, 'think_rect.json')))['think_rect_px']
-    s0 = screen_pt(tr[0] + 230, tr[1] + tr[3] / 2)  # answer would print where 'Thinking' sits
-    k = ease_io((t - 2.15) / 2.0)
-    pos = s0.lerp(at(0.52, 0, 0.05), k)
-    scale = 0.16 + 0.84 * ease_io((t - 2.15) / 1.6)
-    # exit up and away
-    e = ease_io((t - 6.35) / 0.9)
-    pos = pos + up * 0.09 * e - fwd * 0.0 * e
-    ans.location = pos; ans.rotation_euler = rot; ans.scale = (scale,) * 3
-    afac.default_value = clamp((t - 2.05) / 0.25) * (1 - clamp((t - 6.45) / 0.6))
-    # name card rises into focus
-    k2 = ease_out((t - 6.75) / 1.1)
-    for ob_, dz, fac_, delay in ((nm_, 0.016, nfac, 0.0), (rl, -0.012, rfac, 0.18), (ur, -0.037, ufac, 0.4)):
-        kk = ease_out((t - 6.75 - delay) / 1.0)
-        ob_.location = at(0.52, 0, 0.056 + dz - 0.03 * (1 - kk)); ob_.rotation_euler = rot
-        fac_.default_value = clamp((t - 6.75 - delay) / 0.45)
+    s0 = screen_pt(tr[0] + 230, tr[1] + tr[3] / 2)  # the answer prints where 'Thinking' sits, then lifts off
+    k = ease_io((t - 2.15) / 1.75)
+    ex = ease_io((t - 6.9) / 0.8)
+    ans.location = s0.lerp(at(0.52, 0, 0.062), k) + up * 0.12 * ex
+    ans.rotation_euler = rot; ans.scale = (0.2 + 0.8 * ease_io((t - 2.15) / 1.5),) * 3
+    afac.default_value = clamp((t - 2.05) / 0.25) * (1 - clamp((t - 6.95) / 0.5))
+    k2 = ease_out((t - 4.5) / 0.7)
+    ask.location = at(0.52, 0, 0.012 - 0.02 * (1 - k2)) + up * 0.12 * ex; ask.rotation_euler = rot
+    kfac.default_value = clamp((t - 4.5) / 0.35) * (1 - clamp((t - 7.05) / 0.5))
+    tot = afac.default_value
+    TGLOW.location = ans.location - fwd * 0.03; TGLOW.data.energy = 0.25 * max(tot, kfac.default_value)
+    for key, dz, delay in (('name', 0.088, 0.0), ('role', 0.061, 0.15), ('wa', 0.034, 0.35), ('url', 0.013, 0.5)):
+        ob_, fac_ = TXT[key]; kk = ease_out((t - 7.55 - delay) / 1.0)
+        ob_.location = at(0.52, 0, dz - 0.025 * (1 - kk)); ob_.rotation_euler = rot
+        fac_.default_value = clamp((t - 7.55 - delay) / 0.45)
     if t < 2.15: return None
-    if t < 6.6: return ans.location
-    return nm_.location
+    if t < 7.3: return ans.location
+    return TXT['name'][0].location
 
 # ---------------------------------------------------------------- keyframes (camera) for motion blur
 nB = 345; nA = 198
@@ -392,6 +438,8 @@ for f in frames:
     sc.frame_set(f)
     p, g_, focus, emit, texn = shot(f)
     SCR_EMIT.default_value = emit
+    LEG_EMIT.default_value = 0.9 * clamp(emit / 1.55)
+    spill.data.energy = 1.3 * clamp(emit / 1.55)
     SCR_IMG.image = img(os.path.join(TEX, texn))
     fp = focus
     if args.seg == 'B':
