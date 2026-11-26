@@ -285,7 +285,7 @@ tgt = bpy.data.objects.new('tgt', None); bpy.context.collection.objects.link(tgt
 tc_ = cam.constraints.new('TRACK_TO'); tc_.target = tgt; tc_.track_axis = 'TRACK_NEGATIVE_Z'; tc_.up_axis = 'UP_Y'
 cam_d.dof.use_dof = True; cam_d.dof.aperture_fstop = 2.2
 FILL_D = (SW / 2) / math.tan(math.atan(18 / 50))  # distance where screen width fills the frame
-CAM_FILL = S_CEN + S_N * FILL_D
+CAM_FILL = S_CEN + S_N * (FILL_D / 1.16)  # matches the 2D recording's first/last framing (zoom 1.16)
 
 # ---------------------------------------------------------------- floating text (segment B)
 def text_obj(name, body, font, size, color, strength):
@@ -332,7 +332,7 @@ def shot(f):
             x = (t - 4.45) / 1.35
             p, g_ = lerpv(POV_A[0], POV_A2[0], x), lerpv(POV_A[1], POV_A2[1], x)
         else:
-            x = ease_in((t - 5.8) / 0.8)
+            x = ease_in((t - 5.8) / (197 / FPS - 5.8))
             p, g_ = lerpv(POV_A2[0], CAM_FILL, x), lerpv(POV_A2[1], S_CEN, x)
         return p, g_, S_CEN, wake * 1.55, 'dash.jpg'
     else:
